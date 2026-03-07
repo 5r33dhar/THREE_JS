@@ -1,0 +1,59 @@
+<html>
+        <head>
+
+        </head>
+        <body>
+        <script type="module" >
+        import * as THREE from 'https://unpkg.com/three@0.154.0/build/three.module.js';
+
+          var scene = new THREE.Scene();
+          var camera = new THREE.PerspectiveCamera(75,window.innerWidth/window.innerHeight);
+          
+         camera.position.z = 3;       // Pull back so we can see the cube
+         camera.lookAt(0, 0, -100);
+          
+         
+
+
+          var renderer = new THREE.WebGLRenderer({antialias: true});
+          renderer.setSize(window.innerWidth,window.innerHeight);
+          document.body.appendChild(renderer.domElement);
+
+          var geometry = new THREE.BoxGeometry(1,1,1);
+          var materialR = new THREE.MeshBasicMaterial({color: 0xff0000,wireframe: true});
+          var materialB = new THREE.MeshBasicMaterial({color: 0x0000ff});
+          var materialG = new THREE.MeshBasicMaterial({color: 0x00ff00});
+          
+          var cubeR = new THREE.Mesh(geometry,materialR);
+          scene.add(cubeR);
+
+          var cubeB = new THREE.Mesh(geometry,materialB);
+          scene.add(cubeB);
+
+          var cubeG = new THREE.Mesh(geometry,materialG);
+          scene.add(cubeG);
+
+          cubeR.position.set(0, 0, 0);
+          cubeR.rotation.set(0, 0, 0); 
+          cubeB.position.set(-1, 0, 0);
+          cubeB.rotation.set(1, 0, 0);
+          cubeG.position.set(1, 0, 0);
+          cubeG.rotation.set(1, 0, 0);
+          
+          let rotate = true;
+          //let rotate = false;
+
+          var animate = function(){
+
+            if (rotate) {
+            cubeR.rotation.x += 0.01;
+            }
+
+            renderer.render(scene,camera);
+            requestAnimationFrame(animate);
+          }
+
+          animate();
+        </script>
+        </body>
+</html>

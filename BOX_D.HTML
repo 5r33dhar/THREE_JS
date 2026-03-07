@@ -1,0 +1,154 @@
+<html>
+         <!-- <head>
+        
+        <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+        <script src="jquery-2.1.4.js"></script>
+        <link rel="stylesheet" type="text/css" href="css/style.css">
+        -->
+
+
+            <head>
+            <meta charset="utf-8" />
+            <title>Three.js Cube</title>
+            <meta name="viewport" content="width=device-width, initial-scale=1" />
+            <style>
+                html, body { margin: 0; height: 100%; background: #3aa092; overflow: hidden; }
+                #navbar {
+                position: fixed; top: 0; left: 0; right: 0; height: 48px;
+                display: flex; align-items: center; gap: 8px; padding: 0 12px;
+                background: #271c5a; color: #5e0606; font: 600 14px/1.2 system-ui, Segoe UI, Roboto, Arial, sans-serif;
+                border-bottom: 1px solid rgba(148, 9, 9, 0.2);
+                z-index: 10;
+                }
+                canvas { display: block; }
+            </style>
+            </head>
+            <div id="navbar"><span>Three.js Tutorial A</span></div>
+     
+            <body>
+                
+            <script type="module">
+                import * as THREE from 'https://unpkg.com/three@0.154.0/build/three.module.js';
+                const NAVBAR_HEIGHT = 70;
+
+                // ==============================
+                // 1) Scene
+                // ==============================
+   
+                // Create a new scene: this is the container for all 3D objects, lights, etc.
+                var scene = new THREE.Scene();
+
+                
+                // ==============================
+                // 2) Camera
+                // PerspectiveCamera(fov, aspect, near, far)
+                
+                // fov: 75 degrees; aspect: current window ratio;
+                // near/far: typical defaults for a small scene
+
+                // Create a perspective camera.
+                // NOTE: In Three.js, the constructor is PerspectiveCamera(fov, aspect, near, far).
+                // You've passed only (fov, aspect). Some builds might tolerate it, but it's safer to include near/far.
+                // Default camera position is at (0, 0, 0) looking toward -Z.
+                //var camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight);
+
+                const camera = new THREE.PerspectiveCamera(
+                   75,
+                   window.innerWidth / (window.innerHeight - NAVBAR_HEIGHT), // subtract navbar height
+                   0.1,
+                   1000
+                );
+                camera.position.set(0, 0, 10);
+                camera.lookAt(0, 0, 0);
+
+
+                // ==============================
+                // 3) Renderer (match height minus navbar and place below it)
+                // ==============================
+                // Create a WebGL renderer.
+                // antialias: true smooths jagged edges.
+                var renderer = new THREE.WebGLRenderer({ antialias: true });
+
+                // Set the renderer (canvas) size to fill the window.
+                renderer.setSize(window.innerWidth, window.innerHeight);
+
+                // Append the renderer's <canvas> to the document body using jQuery.
+                // If you’re not using jQuery elsewhere, document.body.appendChild(renderer.domElement) also works.
+                //$('body').append(renderer.domElement);
+                document.body.appendChild(renderer.domElement);
+
+
+                // ==============================
+                // 4) Geometry + Material + Mesh
+                // ==============================
+                // Create a box (cube) geometry of size 1x1x1.
+                var geometry = new THREE.BoxGeometry(1, 1, 1);
+
+                // Create a basic (unlit) red material.
+                // MeshBasicMaterial does not react to lights; it renders with a flat color.
+                var material = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+
+                // Combine geometry + material into a mesh (the actual drawable object) and add to the scene.
+                var cube = new THREE.Mesh(geometry, material);
+                scene.add(cube);
+
+
+                // ==============================
+                // 5) Transformations
+                // Place the cube in front of the camera (camera looks toward -Z by default)
+                // Rotations are in radians (π rad = 180°)
+                // ==============================
+                // Place the cube 5 units in front of the camera along -Z.
+                // Since the camera looks toward -Z by default from the origin, z = -5 is visible.
+                cube.position.set(0, 0, 0)
+                //cube.position.x = 0;
+                //cube.position.y = 0;
+                //cube.position.z = 0;
+
+                // Rotate the cube.
+                // IMPORTANT: Three.js uses **radians**, not degrees. 10 and 5 are in radians (~572° and ~286°).
+                // Large values are fine (rotation wraps), but if you intended degrees, convert: radians = degrees * Math.PI / 180.
+                cube.rotation.x = 30 * Math.PI / 180; // 30°
+                cube.rotation.y = 45 * Math.PI / 180; // 45°
+                cube.rotation.z = 0;
+
+
+                // Render a single frame of the scene from the camera’s point of view.
+                // With no animation loop, you’ll see a static image.
+                //renderer.render(scene, camera);
+
+
+                //cube.rotation.set(0, 0, 0);   // reset orientation// <!--OPTION 2
+                // <head>// Animation loop
+                function animate() {
+                    requestAnimationFrame(animate);
+                    // No rotation updates here
+                    renderer.render(scene, camera);
+                }
+                animate();
+                //
+
+
+                // <!--OPTION 3
+                //let rotate = false;
+
+                //function animate() {
+                //    requestAnimationFrame(animate);
+
+                //    if (rotate) {
+                //        cube.rotation.x += 0.01;
+                //        cube.rotation.y += 0.01;
+                //    }
+
+                //    renderer.render(scene, camera);
+                //}
+                //animate();
+                // -->
+
+
+
+
+
+                </script>
+            </body>
+</html>
