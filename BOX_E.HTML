@@ -1,0 +1,260 @@
+<!-- Quick help: https://intexsoft.com/blog/introduction-to-3d-three-js-basics/-->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Three.js — Perspective vs Orthographic</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      /* Basic page reset and background */
+      html, body { margin: 0; height: 100%; background: #dad0d0; overflow: hidden; }
+
+      /* Simple top bar so the page looks like a demo */
+      #navbar {
+        position: fixed; top: 0; left: 0; right: 0; height: 56px;
+        display: flex; align-items: center; gap: 12px; padding: 0 16px;
+        background: #554a92; color: #fff; font: 600 20px/1.2 system-ui, Segoe UI, Roboto, Arial, sans-serif;
+        border-bottom: 10px solid rgba(175, 5, 5, 0.89);
+        z-index: 10;
+      }
+
+      /* Container that holds two panes side-by-side */
+      #wrap {
+        position: absolute; left: 0; right: 0; top: 56px; bottom: 0; display: flex;
+      }
+
+      /* Each pane will hold one renderer (one canvas) */
+      .pane {
+        position: relative; flex: 1 1 50%; display: flex; align-items: stretch; justify-content: stretch;
+        border-left: 5px solid rgba(65, 28, 151, 0.08);
+      }
+      .pane:first-child { border-left: none; }
+
+      /* Two WebGL canvases will be auto-inserted into the panes */
+      canvas { display: block; width: 100%; height: 100%; }
+
+      /* Labels that float over each pane */
+      .label {
+        position: absolute; top: 20px; left: 10px;
+        padding: 6px 10px; border-radius: 6px;
+        background: rgba(0,0,0,0.6); color: #fff; font: 20px/1.3 system-ui;
+        pointer-events: none; user-select: none; z-index: 5;
+      }
+
+      /* Small HUD with keyboard help */
+      .hud {
+        position: fixed; bottom: 10px; left: 10px; z-index: 12;
+        background: rgba(0,0,0,0.6); color: #fff; padding: 8px 10px; border-radius: 10px; font: 20px/1.3 system-ui;
+      }
+      .kbd { padding: 1px 6px; border: 1px solid rgba(255,255,255,0.35); border-radius: 4px; font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <!-- Simple title bar -->
+    <div id="navbar">
+      <span>Three.js — Perspective vs Orthographic<br>
+      https://intexsoft.com/blog/introduction-to-3d-three-js-basics/</span>
+    </div>
+
+    <!-- Two side-by-side panes -->
+    <div id="wrap">
+      <div class="pane" id="pane-persp">
+        <div class="label">Camera: <b>Perspective</b></div>
+      </div>
+      <div class="pane" id="pane-ortho">
+        <div class="label">Camera: <b>Orthographic</b></div>
+      </div>
+    </div>
+
+    <!-- Quick help: keys to interact -->
+    <div class="hud">
+      Keys:
+      <span class="kbd">W</span> toggle wireframe •
+      <span class="kbd">R</span> reset rotation •
+      <span class="kbd">S</span> toggle rotation •
+      <span class="kbd">O</span> start •
+      <span class="kbd">P</span> stop
+    </div>
+
+    <script type="module">
+      import * as THREE from 'https://unpkg.com/three@0.154.0/build/three.module.js';
+
+      // -----------------------------
+      // Shared scene factory
+      // -----------------------------
+      function createSceneContent() {
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x222222);
+
+        const group = new THREE.Group();
+
+        // Red cube
+        const boxGeo = new THREE.BoxGeometry(1.6, 1.6, 1.6, 2, 2, 2);
+        const boxMat = new THREE.MeshBasicMaterial({ color: 0xff4444, wireframe: false });
+        const cube = new THREE.Mesh(boxGeo, boxMat);
+        cube.position.set(-1.2, 0.0, 0.0);
+        group.add(cube);
+
+        // Green torus knot
+        const tkGeo = new THREE.TorusKnotGeometry(0.8, 0.25, 160, 24);
+        const tkMat = new THREE.MeshBasicMaterial({ color: 0x44ff88, wireframe: false });
+        const knot = new THREE.Mesh(tkGeo, tkMat);
+        knot.position.set(1.2, 0.0, 0.0);
+        group.add(knot);
+
+        // Grid
+        const grid = new THREE.GridHelper(18, 36, 0x666666, 0x333333);
+        grid.position.y = -2.2;
+
+        scene.add(group);
+        scene.add(grid);
+
+        return { scene, cube, knot, boxMat, tkMat, group };
+      }
+
+      // -----------------------------
+      // Viewer factory (Perspective / Orthographic)
+      // -----------------------------
+      function createViewer(container, cameraType = 'perspective') {
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        container.appendChild(renderer.domElement);
+
+        // Build content
+        const { scene, cube, knot, boxMat, tkMat, group } = createSceneContent();
+
+        // Camera
+        let camera;
+        const view = { renderer, camera: null, scene, cube, knot, boxMat, tkMat, group, container,
+                       cameraType, frustumSize: 12 /* used for Ortho */ };
+
+        if (cameraType === 'perspective') {
+          
+            // Create a Perspective Camera:
+            // PerspectiveCamera( fieldOfView, aspectRatio, nearClip, farClip )
+            camera = new THREE.PerspectiveCamera(
+                60,     // 60° vertical field of view (FOV) — how wide the camera sees
+                1,      // aspect ratio = width / height (1 = square view; you update this on resize)
+                0.1,    // near clipping plane — anything closer than 0.1 units is not rendered
+                1000    // far clipping plane — anything farther than 1000 units is not rendered
+            );
+
+          camera.position.set(0, 2.4, 6.5);
+          camera.lookAt(0, 0, 0);
+        } else {
+          // Orthographic camera: we compute its frustum based on aspect on resize
+          
+            camera = new THREE.OrthographicCamera(
+            -1,   // left   : x coordinate of the left vertical clipping plane
+            1,   // right  : x coordinate of the right vertical clipping plane
+            1,   // top    : y coordinate of the top horizontal clipping plane
+            -1,   // bottom : y coordinate of the bottom horizontal clipping plane
+            -1000, // near   : near clipping plane distance along -Z (values behind near are not rendered)
+            1000  // far    : far  clipping plane distance along -Z (values beyond far are not rendered)
+            );
+            
+          camera.position.set(0, 2.4, 6.5);
+          camera.lookAt(0, 0, 0);
+          camera.zoom = 1; // you can tweak zoom if you want a different scale
+          camera.updateProjectionMatrix();
+        }
+
+        view.camera = camera;
+        return view;
+      }
+
+      // Create two viewers
+      const panePersp = document.getElementById('pane-persp');
+      const paneOrtho = document.getElementById('pane-ortho');
+
+      const viewPersp = createViewer(panePersp, 'perspective');
+      const viewOrtho = createViewer(paneOrtho, 'orthographic');
+
+      // -----------------------------
+      // Resize handling (Perspective + Ortho)
+      // -----------------------------
+      function resizeView(view) {
+        const rect = view.container.getBoundingClientRect();
+        const w = rect.width;
+        const h = rect.height;
+
+        view.renderer.setSize(w, h, false);
+
+        if (view.cameraType === 'perspective') {
+          view.camera.aspect = w / h;
+          view.camera.updateProjectionMatrix();
+        } else {
+          // Orthographic: keep a constant vertical size (frustumSize), scale horizontal by aspect
+          const aspect = w / h;
+          const frustumSize = view.frustumSize; // configurable
+          view.camera.left   = - (frustumSize * aspect) / 2;
+          view.camera.right  =   (frustumSize * aspect) / 2;
+          view.camera.top    =   frustumSize / 2;
+          view.camera.bottom = - frustumSize / 2;
+          view.camera.updateProjectionMatrix();
+        }
+      }
+
+      function onResize() {
+        resizeView(viewPersp);
+        resizeView(viewOrtho);
+      }
+      window.addEventListener('resize', onResize);
+      onResize(); // initial layout
+
+      // -----------------------------
+      // Interaction: wireframe & rotation controls
+      // -----------------------------
+      let wireframe = false;
+      function setWireframe(value) {
+        wireframe = value;
+        [viewPersp, viewOrtho].forEach(v => {
+          v.boxMat.wireframe = wireframe;
+          v.tkMat.wireframe  = wireframe;
+        });
+      }
+
+      function resetRotation() {
+        [viewPersp, viewOrtho].forEach(v => {
+          v.group.rotation.set(0, 0, 0);
+          v.cube.rotation.set(0, 0, 0);
+          v.knot.rotation.set(0, 0, 0);
+        });
+      }
+
+      // Rotation control
+      let rotationEnabled = true;
+      function startRotation() { rotationEnabled = true; }
+      function stopRotation()  { rotationEnabled = false; }
+      function toggleRotation(){ rotationEnabled = !rotationEnabled; }
+
+      // Keyboard shortcuts
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'w' || e.key === 'W') setWireframe(!wireframe);
+        if (e.key === 'r' || e.key === 'R') resetRotation();
+        if (e.key === 's' || e.key === 'S') toggleRotation();
+        if (e.key === 'o' || e.key === 'O') startRotation();
+        if (e.key === 'p' || e.key === 'P') stopRotation();
+      });
+
+      // -----------------------------
+      // Animation
+      // -----------------------------
+      function renderView(v) {
+        if (rotationEnabled) {
+          v.group.rotation.y += 0.01;
+          v.knot.rotation.x  += 0.013;
+          v.knot.rotation.z  += 0.007;
+        }
+        v.renderer.render(v.scene, v.camera);
+      }
+
+      function animate() {
+        requestAnimationFrame(animate);
+        renderView(viewPersp);
+        renderView(viewOrtho);
+      }
+      animate();
+    </script>
+  </body>
+</html>
