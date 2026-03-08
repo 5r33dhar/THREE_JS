@@ -64,6 +64,23 @@
     const cube = new THREE.Mesh(boxGeo, boxMat);
     scene.add(cube);
 
+            // ===== NEW: crisp edge overlay for the cube =====
+        // Create edges from the cube's geometry
+        const cubeEdgeGeom = new THREE.EdgesGeometry(cube.geometry, /*thresholdAngle*/ 1);
+        // White line material
+        const cubeEdgeMat  = new THREE.LineBasicMaterial({ color: 0xffffff });
+        const cubeEdges    = new THREE.LineSegments(cubeEdgeGeom, cubeEdgeMat);
+
+        // Make edges render clearly on top:
+        // Option A (simplest): disable depth test so the lines aren't hidden by faces.
+        cubeEdges.material.depthTest = false;
+        // Option B (alternative): keep depthTest true and push render order above the cube.
+        // cubeEdges.renderOrder = 999;
+
+        // Attach edges to the cube so it follows all transforms automatically
+        cube.add(cubeEdges);
+        // ===== END NEW =====
+
     // ----------------------------------------
     // 5) Resize logic — update renderer and Ortho frustum
     // ----------------------------------------

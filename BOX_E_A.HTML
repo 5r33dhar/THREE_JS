@@ -95,6 +95,7 @@
         cube.position.set(-1.2, 0.0, 0.0);
         group.add(cube);
 
+
         // ===== NEW: crisp edge overlay for the cube =====
         // Create edges from the cube's geometry
         const cubeEdgeGeom = new THREE.EdgesGeometry(cube.geometry, /*thresholdAngle*/ 1);
@@ -111,7 +112,8 @@
         // Attach edges to the cube so it follows all transforms automatically
         cube.add(cubeEdges);
         // ===== END NEW =====
-        
+
+
         // Green torus knot
         const tkGeo = new THREE.TorusKnotGeometry(0.8, 0.25, 160, 24);
         const tkMat = new THREE.MeshBasicMaterial({ color: 0x44ff88, wireframe: false });
@@ -123,13 +125,16 @@
         const grid = new THREE.GridHelper(18, 36, 0x666666, 0x333333);
         grid.position.y = -2.2;
 
+        const axes = new THREE.AxesHelper(6);
+
+
+
         scene.add(group);
         scene.add(grid);
+        scene.add(axes);
 
-        return { scene, cube, knot, boxMat, tkMat, group };
+        return { scene, cube, knot, boxMat, tkMat, group,axes };
       }
-
-
 
       // -----------------------------
       // Viewer factory (Perspective / Orthographic)

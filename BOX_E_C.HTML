@@ -1,0 +1,252 @@
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Three.js Side-by-Side Cameras (Grid Labels)</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #111; overflow: hidden; }
+      canvas { display: block; }
+      .label {
+        position: fixed;
+        top: 10px;
+        padding: 6px 10px;
+        background: rgba(0,0,0,0.6);
+        color: #fff;
+        font: 12px/1.3 system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans";
+        border-radius: 6px;
+        pointer-events: none;
+        user-select: none;
+      }
+      #label-left { left: 10px; }
+      #label-right { right: 10px; }
+    </style>
+  </head>
+  <body>
+    <div id="label-left" class="label">Perspective</div>
+    <div id="label-right" class="label">Orthographic</div>
+
+    <script type="module">
+      import * as THREE from 'https://unpkg.com/three@0.154.0/build/three.module.js';
+
+      // --- Scene ---
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x222222);
+
+      // --- Renderer (full window) ---
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setScissorTest(true); // restrict each render to its viewport
+      document.body.appendChild(renderer.domElement);
+
+      // --- Content ---
+      const gridSize = 20;
+      const gridDiv  = 20;
+      const grid = new THREE.GridHelper(gridSize, gridDiv, 0x666666, 0x333333);
+      grid.position.y = -5;
+      scene.add(grid);
+
+      const axes = new THREE.AxesHelper(6);
+      scene.add(axes);
+
+      const cube = new THREE.Mesh(
+        new THREE.BoxGeometry(5, 5, 5),
+        new THREE.MeshBasicMaterial({ color: 0x00ff00 })
+      );
+      scene.add(cube);
+
+      
+
+      // ===== NEW: crisp edge overlay for the cube =====
+      // Create edges from the cube's geometry
+      const cubeEdgeGeom = new THREE.EdgesGeometry(cube.geometry, /*thresholdAngle*/ 1);
+      // White line material
+      const cubeEdgeMat  = new THREE.LineBasicMaterial({ color: 0xffffff });
+      const cubeEdges    = new THREE.LineSegments(cubeEdgeGeom, cubeEdgeMat);
+
+      // Make edges render clearly on top:
+      // Option A (simplest): disable depth test so the lines aren't hidden by faces.
+      cubeEdges.material.depthTest = false;
+      // Option B (alternative): keep depthTest true and push render order above the cube.
+      // cubeEdges.renderOrder = 999;
+
+      // Attach edges to the cube so it follows all transforms automatically
+      cube.add(cubeEdges);
+
+
+
+      // --- Cameras ---
+      const perspCamera = new THREE.PerspectiveCamera(60, 1, 0.1, 1000);
+      perspCamera.position.set(10, 10, 15);
+      perspCamera.lookAt(0, 0, 0);
+
+      const orthoCamera = new THREE.OrthographicCamera(-10, 10, 10, -10, -1000, 1000);
+      orthoCamera.position.set(10, 10, 15);
+      orthoCamera.lookAt(0, 0, 0);
+      orthoCamera.zoom = 1;
+      orthoCamera.updateProjectionMatrix();
+
+      // --- Viewports ---
+      const leftViewport  = new THREE.Vector4();
+      const rightViewport = new THREE.Vector4();
+
+      function setViewports() {
+        const W = window.innerWidth;
+        const H = window.innerHeight;
+        renderer.setSize(W, H);
+
+        leftViewport.set(0, 0, Math.floor(W / 2), H);
+        rightViewport.set(Math.floor(W / 2), 0, W - Math.floor(W / 2), H);
+
+        const leftAspect  = leftViewport.z / leftViewport.w;
+        const rightAspect = rightViewport.z / rightViewport.w;
+
+        perspCamera.aspect = leftAspect;
+        perspCamera.updateProjectionMatrix();
+
+        const frustumSize = 20;
+        const orthoHeight = frustumSize;
+        const orthoWidth  = frustumSize * rightAspect;
+        orthoCamera.left   = -orthoWidth / 2;
+        orthoCamera.right  =  orthoWidth / 2;
+        orthoCamera.top    =  orthoHeight / 2;
+        orthoCamera.bottom = -orthoHeight / 2;
+        orthoCamera.updateProjectionMatrix();
+      }
+
+      setViewports();
+      window.addEventListener('resize', setViewports);
+
+      // -------------------------------------------------------------------
+      // Axis Labels (Sprites from small canvases)
+      // -------------------------------------------------------------------
+
+      function makeTextSprite(text, options = {}) {
+        const {
+          font = 'bold 36px system-ui, Segoe UI, Roboto, Arial, sans-serif',
+          fillStyle = '#ffffff',
+          strokeStyle = 'rgba(0,0,0,0.65)',
+          strokeWidth = 6,
+          padding = 12,
+          background = null,  // e.g., 'rgba(0,0,0,0.35)'
+          borderRadius = 8,
+          worldHeight = 2.5   // sprite height in world units
+        } = options;
+
+        // 1) Draw label onto a canvas
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        ctx.font = font;
+
+        const metrics = ctx.measureText(text);
+        const textW = Math.ceil(metrics.width);
+        const textH = 36; // approximate line height for 36px font
+
+        canvas.width  = textW + padding * 2;
+        canvas.height = textH + padding * 2;
+
+        // Reapply font after resizing canvas
+        ctx.font = font;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'top';
+
+        // Optional rounded background
+        if (background) {
+          const r = borderRadius;
+          ctx.fillStyle = background;
+          ctx.beginPath();
+          ctx.moveTo(r, 0);
+          ctx.lineTo(canvas.width - r, 0);
+          ctx.quadraticCurveTo(canvas.width, 0, canvas.width, r);
+          ctx.lineTo(canvas.width, canvas.height - r);
+          ctx.quadraticCurveTo(canvas.width, canvas.height, canvas.width - r, canvas.height);
+          ctx.lineTo(r, canvas.height);
+          ctx.quadraticCurveTo(0, canvas.height, 0, canvas.height - r);
+          ctx.lineTo(0, r);
+          ctx.quadraticCurveTo(0, 0, r, 0);
+          ctx.closePath();
+          ctx.fill();
+        }
+
+        // Text stroke for contrast
+        if (strokeWidth > 0) {
+          ctx.lineWidth = strokeWidth;
+          ctx.strokeStyle = strokeStyle;
+          ctx.strokeText(text, padding, padding);
+        }
+        // Text fill
+        ctx.fillStyle = fillStyle;
+        ctx.fillText(text, padding, padding);
+
+        // 2) Create a sprite from the canvas
+        const tex = new THREE.CanvasTexture(canvas);
+        tex.minFilter = THREE.LinearMipmapLinearFilter;
+        tex.magFilter = THREE.LinearFilter;
+        tex.anisotropy = 4;
+
+        const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+        const sprite = new THREE.Sprite(mat);
+
+        // Scale in world units, preserving canvas aspect
+        const aspect = canvas.width / canvas.height;
+        sprite.scale.set(worldHeight * aspect, worldHeight, 1);
+
+        return sprite;
+      }
+
+      function addGridAxisLabels(scene, size = gridSize) {
+        const half = size / 2;
+
+        const commonOpts = { background: 'rgba(0,0,0,0.35)', worldHeight: 2.5 };
+
+        const xPlus = makeTextSprite('X+', { ...commonOpts, fillStyle: '#ff6666' });
+        xPlus.position.set( half, 0.1, 0);
+        scene.add(xPlus);
+
+        const xMinus = makeTextSprite('X-', { ...commonOpts, fillStyle: '#ff6666' });
+        xMinus.position.set(-half, 0.1, 0);
+        scene.add(xMinus);
+
+        const zPlus = makeTextSprite('Z+', { ...commonOpts, fillStyle: '#66ff66' });
+        zPlus.position.set(0, 0.1,  half);
+        scene.add(zPlus);
+
+        const zMinus = makeTextSprite('Z-', { ...commonOpts, fillStyle: '#66ff66' });
+        zMinus.position.set(0, 0.1, -half);
+        scene.add(zMinus);
+
+        // Optional Y axis labels (above/below origin)
+        const yPlus = makeTextSprite('Y+', { ...commonOpts, fillStyle: '#66aaff' });
+        yPlus.position.set(0, 6, 0);
+        scene.add(yPlus);
+
+        const yMinus = makeTextSprite('Y-', { ...commonOpts, fillStyle: '#66aaff' });
+        yMinus.position.set(0, -6, 0);
+        scene.add(yMinus);
+      }
+
+      addGridAxisLabels(scene, gridSize);
+
+      // --- Animation ---
+      function animate() {
+        requestAnimationFrame(animate);
+
+        // Rotate the cube so depth differences are visible
+        cube.rotation.x += 0.01;
+        cube.rotation.y += 0.01;
+
+        // Render LEFT (Perspective)
+        renderer.setViewport(leftViewport.x, leftViewport.y, leftViewport.z, leftViewport.w);
+        renderer.setScissor(leftViewport.x, leftViewport.y, leftViewport.z, leftViewport.w);
+        renderer.render(scene, perspCamera);
+
+        // Render RIGHT (Orthographic)
+        renderer.setViewport(rightViewport.x, rightViewport.y, rightViewport.z, rightViewport.w);
+        renderer.setScissor(rightViewport.x, rightViewport.y, rightViewport.z, rightViewport.w);
+        renderer.render(scene, orthoCamera);
+      }
+      animate();
+    </script>
+  </body>
+</html>
